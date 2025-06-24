@@ -23,8 +23,10 @@ def crear_layout_principal(root):
 
     # Configuración de la ventana principal
     root.configure(bg=gris_fondo)
-    root.geometry('1600x800')
+    root.geometry('1200x600')  # Resolución inicial más pequeña
     root.title('CNT-91')
+    root.minsize(800, 400)  # Tamaño mínimo razonable
+    root.resizable(True, True)  # Permitir redimensionar libremente
 
     style = ttk.Style()
     style.theme_use('clam')
