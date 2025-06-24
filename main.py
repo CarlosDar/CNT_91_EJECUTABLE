@@ -7,6 +7,7 @@
 import tkinter as tk
 from frontend_widgets import crear_layout_principal
 import CNT_9X_pendulum as CNT
+import os
 
 # Variable global para el objeto del frecuencímetro
 cnt_device = None
@@ -515,6 +516,37 @@ def mostrar_menu_canal(widgets):
         filtro_formato = "True" if filtro_Analog_PASSAbaja == 'True' else "False"
         
         resultado_label.config(text=f"✓ Configuración guardada: Canal {canal_seleccionado}, Intervalo {intervalo_formato} s, Acoplamiento {acoplamiento}, Impedancia {impedancia}, Atenuación {atenuacion}x, Trigger {trigger_formato}, Pendiente {trigger_slope}, Filtro Analógico pasa bajas {filtro_formato}", fg='#27ae60')
+        
+        # Convertir filtro_Analog_PASSAbaja a booleano real
+        filtro_analog_bool = True if filtro_Analog_PASSAbaja == 'True' else False
+        
+        # Configurar el dispositivo usando la función configurar_dispositivo
+        try:
+            # Acceder al objeto CNT_91 global (cnt_device)
+            if 'cnt_device' in globals() and cnt_device is not None:
+                # Convertir impedancia de 'Max'/'Min' a 'MAX'/'MIN' para la función
+                impedancia_convertida = 'MAX' if impedancia == 'Max' else 'MIN'
+                
+                # Llamar a configurar_dispositivo con todos los parámetros
+                file_path = cnt_device.configurar_dispositivo(
+                    canal=canal_seleccionado,
+                    intervalo_s=intervalo_s,
+                    acoplamiento=acoplamiento,
+                    impedancia=impedancia_convertida,
+                    atenuacion=atenuacion,
+                    trigger_level=trigger_level,
+                    trigger_slope=trigger_slope,
+                    filtro_Digital_PASSAbaja=None,  # Mantener None como especificaste
+                    filtro_Analog_PASSAbaja=filtro_analog_bool,   # Ahora es booleano
+                    file_path=None  # Mantener None como especificaste
+                )
+                
+                # Mostrar confirmación de configuración del dispositivo
+                resultado_label.config(text=f"✓ Dispositivo configurado exitosamente. Archivo: {os.path.basename(file_path)}", fg='#27ae60')
+            else:
+                resultado_label.config(text="⚠ Error: Dispositivo no conectado", fg='#e74c3c')
+        except Exception as e:
+            resultado_label.config(text=f"⚠ Error al configurar dispositivo: {str(e)}", fg='#e74c3c')
     
     # Frame para botón y resultado
     accion_frame = tk.Frame(config_frame, bg='white')
