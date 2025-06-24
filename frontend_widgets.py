@@ -100,8 +100,8 @@ def crear_layout_principal(root):
     btn_config = ttk.Button(frame_lateral, text='⚙️  Configuración', style='Sidebar.TButton')
     btn_config.pack(fill='x', padx=20, pady=(0, 10))
 
-    # Botón Mediciones
-    btn_mediciones = ttk.Button(frame_lateral, text='📈  Mediciones', style='Sidebar.TButton')
+    # Botón Frequency Datalogger
+    btn_mediciones = ttk.Button(frame_lateral, text='📈  Frequency Datalogger', style='Sidebar.TButton')
     btn_mediciones.pack(fill='x', padx=20, pady=(0, 10))
 
     # Botón Información
