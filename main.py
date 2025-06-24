@@ -26,6 +26,19 @@ acoplamiento = 'AC'
 # Variable global para la impedancia ('Max' o 'Min')
 impedancia = 'Max'  # Nuevo parámetro: 'Max' para 1MΩ, 'Min' para 50Ω
 
+# Variable global para la atenuación ('1' o '10')
+atenuacion = '1'  # Nuevo parámetro: '1' para 1x, '10' para 10x
+
+# Variable global para el nivel de trigger (None para automático, float para manual)
+trigger_level = None  # Nuevo parámetro: None para automático, float para manual (-5 a 5)
+
+# Variable global para la pendiente del trigger ('POS' o 'NEG')
+trigger_slope = 'POS'  # Nuevo parámetro: 'POS' para pendiente positiva, 'NEG' para negativa
+
+# Variable global para el filtro analógico ajustable (None para False, 'True' para True)
+filtro_Analog_PASSAbaja = None  # Nuevo parámetro: None para False, 'True' para True
+
+
 # Función para mostrar el menú de selección de canal
 def mostrar_menu_canal(widgets):
     global canal_seleccionado, intervalo_s, acoplamiento, impedancia
@@ -73,6 +86,19 @@ def mostrar_menu_canal(widgets):
     
     # Variable interna para la impedancia
     impedancia_var = tk.StringVar(value=impedancia)
+    
+    # Variable interna para la atenuación
+    atenuacion_var = tk.StringVar(value=atenuacion)
+    
+    # Variable interna para el trigger
+    trigger_mode_var = tk.StringVar(value='automatico' if trigger_level is None else 'manual')
+    trigger_value_var = tk.StringVar(value=str(trigger_level) if trigger_level is not None else '0')
+    
+    # Variable interna para la pendiente del trigger
+    trigger_slope_var = tk.StringVar(value=trigger_slope)
+    
+    # Variable interna para el filtro analógico
+    filtro_analog_var = tk.StringVar(value='True' if filtro_Analog_PASSAbaja == 'True' else 'False')
     
     # Frame para el selector de canal
     selector_frame = tk.Frame(config_frame, bg='white')
@@ -228,12 +254,238 @@ def mostrar_menu_canal(widgets):
                              activeforeground='#2980f2')
     radio_min.pack(side='left')
     
+    # Separador entre configuraciones
+    separador_config4 = tk.Frame(config_frame, height=1, bg='#e0e0e0')
+    separador_config4.pack(fill='x', padx=10, pady=5)
+    
+    # Frame para el selector de atenuación
+    atenuacion_frame = tk.Frame(config_frame, bg='white')
+    atenuacion_frame.pack(fill='x', padx=10, pady=(0, 8))
+    
+    # Etiqueta del selector de atenuación
+    label_atenuacion = tk.Label(atenuacion_frame, text='Atenuación:', 
+                                 font=('Segoe UI', 8, 'bold'), 
+                                 fg='#6c757d', bg='white')
+    label_atenuacion.pack(anchor='w', pady=(0, 3))
+    
+    # Frame para los radio buttons de atenuación
+    radio_atenuacion_frame = tk.Frame(atenuacion_frame, bg='white')
+    radio_atenuacion_frame.pack(anchor='w')
+    
+    # Radio buttons para atenuación
+    radio_1x = tk.Radiobutton(radio_atenuacion_frame, text='1x', 
+                             variable=atenuacion_var, value='1', 
+                             font=('Segoe UI', 8), 
+                             fg='#25364a', bg='white',
+                             selectcolor='white',
+                             activebackground='white',
+                             activeforeground='#2980f2')
+    radio_1x.pack(side='left', padx=(0, 15))
+    
+    radio_10x = tk.Radiobutton(radio_atenuacion_frame, text='10x', 
+                             variable=atenuacion_var, value='10', 
+                             font=('Segoe UI', 8), 
+                             fg='#25364a', bg='white',
+                             selectcolor='white',
+                             activebackground='white',
+                             activeforeground='#2980f2')
+    radio_10x.pack(side='left')
+    
+    # Separador entre configuraciones
+    separador_config5 = tk.Frame(config_frame, height=1, bg='#e0e0e0')
+    separador_config5.pack(fill='x', padx=10, pady=5)
+    
+    # Frame para el selector de trigger
+    trigger_frame = tk.Frame(config_frame, bg='white')
+    trigger_frame.pack(fill='x', padx=10, pady=(0, 8))
+    
+    # Etiqueta del selector de trigger
+    label_trigger = tk.Label(trigger_frame, text='Nivel de Trigger:', 
+                            font=('Segoe UI', 8, 'bold'), 
+                            fg='#6c757d', bg='white')
+    label_trigger.pack(anchor='w', pady=(0, 3))
+    
+    # Etiqueta explicativa de porcentajes automáticos
+    def actualizar_explicacion_trigger(*args):
+        canal_actual = canal_var.get()
+        if canal_actual == 'A':
+            porcentaje = '70%'
+        else:
+            porcentaje = '30%'
+        explicacion_trigger.config(text=f"(Automático: {porcentaje} del rango)")
+    
+    explicacion_trigger = tk.Label(trigger_frame, text='(Automático: 70% del rango)', 
+                                  font=('Segoe UI', 7), 
+                                  fg='#6c757d', bg='white')
+    explicacion_trigger.pack(anchor='w', pady=(0, 3))
+    
+    # Vincular actualización de explicación a cambios en el canal
+    canal_var.trace('w', actualizar_explicacion_trigger)
+    
+    # Frame para los radio buttons de trigger
+    radio_trigger_frame = tk.Frame(trigger_frame, bg='white')
+    radio_trigger_frame.pack(anchor='w')
+    
+    # Radio buttons para trigger
+    radio_auto = tk.Radiobutton(radio_trigger_frame, text='Automático', 
+                               variable=trigger_mode_var, value='automatico', 
+                               font=('Segoe UI', 8), 
+                               fg='#25364a', bg='white',
+                               selectcolor='white',
+                               activebackground='white',
+                               activeforeground='#2980f2')
+    radio_auto.pack(side='left', padx=(0, 15))
+    
+    radio_manual = tk.Radiobutton(radio_trigger_frame, text='Manual', 
+                                 variable=trigger_mode_var, value='manual', 
+                                 font=('Segoe UI', 8), 
+                                 fg='#25364a', bg='white',
+                                 selectcolor='white',
+                                 activebackground='white',
+                                 activeforeground='#2980f2')
+    radio_manual.pack(side='left')
+    
+    # Frame para el valor manual del trigger
+    trigger_value_frame = tk.Frame(trigger_frame, bg='white')
+    trigger_value_frame.pack(anchor='w', pady=(5, 0))
+    
+    # Etiqueta del valor manual
+    label_trigger_value = tk.Label(trigger_value_frame, text='Valor (-5 a 5 V):', 
+                                  font=('Segoe UI', 8), 
+                                  fg='#6c757d', bg='white')
+    label_trigger_value.pack(side='left', padx=(0, 5))
+    
+    # Entry para el valor manual del trigger
+    entry_trigger = tk.Entry(trigger_value_frame, 
+                            textvariable=trigger_value_var,
+                            font=('Segoe UI', 8),
+                            width=8,
+                            justify='left')
+    entry_trigger.pack(side='left')
+    
+    # Función para validar entrada del trigger
+    def validar_entrada_trigger(*args):
+        try:
+            texto_actual = trigger_value_var.get()
+            if texto_actual == "":
+                return  # Permitir campo vacío
+            
+            valor = float(texto_actual)
+            
+            # Validar límites
+            if valor < -5:
+                trigger_value_var.set("-5.0")
+            elif valor > 5:
+                trigger_value_var.set("5.0")
+        except ValueError:
+            # Si no es un número válido, no hacer nada
+            pass
+    
+    # Vincular validación a cambios en la variable
+    trigger_value_var.trace('w', validar_entrada_trigger)
+    
+    # Separador entre configuraciones
+    separador_config6 = tk.Frame(config_frame, height=1, bg='#e0e0e0')
+    separador_config6.pack(fill='x', padx=10, pady=5)
+    
+    # Frame para el selector de pendiente del trigger
+    trigger_slope_frame = tk.Frame(config_frame, bg='white')
+    trigger_slope_frame.pack(fill='x', padx=10, pady=(0, 8))
+    
+    # Etiqueta del selector de pendiente del trigger
+    label_trigger_slope = tk.Label(trigger_slope_frame, text='Pendiente del Trigger:', 
+                                  font=('Segoe UI', 8, 'bold'), 
+                                  fg='#6c757d', bg='white')
+    label_trigger_slope.pack(anchor='w', pady=(0, 3))
+    
+    # Frame para los radio buttons de pendiente del trigger
+    radio_trigger_slope_frame = tk.Frame(trigger_slope_frame, bg='white')
+    radio_trigger_slope_frame.pack(anchor='w')
+    
+    # Radio buttons para pendiente del trigger
+    radio_pos = tk.Radiobutton(radio_trigger_slope_frame, text='Positiva', 
+                              variable=trigger_slope_var, value='POS', 
+                              font=('Segoe UI', 8), 
+                              fg='#25364a', bg='white',
+                              selectcolor='white',
+                              activebackground='white',
+                              activeforeground='#2980f2')
+    radio_pos.pack(side='left', padx=(0, 15))
+    
+    radio_neg = tk.Radiobutton(radio_trigger_slope_frame, text='Negativa', 
+                              variable=trigger_slope_var, value='NEG', 
+                              font=('Segoe UI', 8), 
+                              fg='#25364a', bg='white',
+                              selectcolor='white',
+                              activebackground='white',
+                              activeforeground='#2980f2')
+    radio_neg.pack(side='left')
+    
+    # Separador entre configuraciones
+    separador_config7 = tk.Frame(config_frame, height=1, bg='#e0e0e0')
+    separador_config7.pack(fill='x', padx=10, pady=5)
+    
+    # Frame para el selector de filtro analógico
+    filtro_analog_frame = tk.Frame(config_frame, bg='white')
+    filtro_analog_frame.pack(fill='x', padx=10, pady=(0, 8))
+    
+    # Etiqueta del selector de filtro analógico
+    label_filtro_analog = tk.Label(filtro_analog_frame, text='Filtro Analógico pasa bajas:', 
+                                  font=('Segoe UI', 8, 'bold'), 
+                                  fg='#6c757d', bg='white')
+    label_filtro_analog.pack(anchor='w', pady=(0, 3))
+    
+    # Frame para los radio buttons de filtro analógico
+    radio_filtro_analog_frame = tk.Frame(filtro_analog_frame, bg='white')
+    radio_filtro_analog_frame.pack(anchor='w')
+    
+    # Radio buttons para filtro analógico
+    radio_filtro_true = tk.Radiobutton(radio_filtro_analog_frame, text='True', 
+                                      variable=filtro_analog_var, value='True', 
+                                      font=('Segoe UI', 8), 
+                                      fg='#25364a', bg='white',
+                                      selectcolor='white',
+                                      activebackground='white',
+                                      activeforeground='#2980f2')
+    radio_filtro_true.pack(side='left', padx=(0, 15))
+    
+    radio_filtro_false = tk.Radiobutton(radio_filtro_analog_frame, text='False', 
+                                       variable=filtro_analog_var, value='False', 
+                                       font=('Segoe UI', 8), 
+                                       fg='#25364a', bg='white',
+                                       selectcolor='white',
+                                       activebackground='white',
+                                       activeforeground='#2980f2')
+    radio_filtro_false.pack(side='left')
+    
     # Función para guardar selección
     def guardar_seleccion():
-        global canal_seleccionado, intervalo_s, acoplamiento, impedancia
+        global canal_seleccionado, intervalo_s, acoplamiento, impedancia, atenuacion, trigger_level, trigger_slope, filtro_Analog_PASSAbaja
         canal_seleccionado = canal_var.get()
         acoplamiento = acoplamiento_var.get()
         impedancia = impedancia_var.get()
+        atenuacion = atenuacion_var.get()
+        trigger_slope = trigger_slope_var.get()
+        
+        # Procesar filtro analógico
+        if filtro_analog_var.get() == 'True':
+            filtro_Analog_PASSAbaja = 'True'
+        else:
+            filtro_Analog_PASSAbaja = None
+        
+        # Procesar trigger
+        if trigger_mode_var.get() == 'automatico':
+            trigger_level = None
+        else:
+            try:
+                trigger_level = float(trigger_value_var.get())
+                # Validar límites finales
+                if trigger_level < -5:
+                    trigger_level = -5.0
+                elif trigger_level > 5:
+                    trigger_level = 5.0
+            except ValueError:
+                trigger_level = 0.0  # Valor por defecto si hay error
         
         try:
             intervalo_s = float(intervalo_var.get())
@@ -253,7 +505,16 @@ def mostrar_menu_canal(widgets):
         else:
             intervalo_formato = f"{intervalo_s:.3f}"
         
-        resultado_label.config(text=f"✓ Configuración guardada: Canal {canal_seleccionado}, Intervalo {intervalo_formato} s, Acoplamiento {acoplamiento}, Impedancia {impedancia}", fg='#27ae60')
+        # Formatear trigger para mostrar
+        if trigger_level is None:
+            trigger_formato = "Automático"
+        else:
+            trigger_formato = f"{trigger_level:.1f}V"
+        
+        # Formatear filtro analógico para mostrar
+        filtro_formato = "True" if filtro_Analog_PASSAbaja == 'True' else "False"
+        
+        resultado_label.config(text=f"✓ Configuración guardada: Canal {canal_seleccionado}, Intervalo {intervalo_formato} s, Acoplamiento {acoplamiento}, Impedancia {impedancia}, Atenuación {atenuacion}x, Trigger {trigger_formato}, Pendiente {trigger_slope}, Filtro Analógico pasa bajas {filtro_formato}", fg='#27ae60')
     
     # Frame para botón y resultado
     accion_frame = tk.Frame(config_frame, bg='white')
