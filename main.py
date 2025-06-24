@@ -148,6 +148,12 @@ def mostrar_menu_canal(widgets):
                               fg='#6c757d', bg='white')
     label_intervalo.pack(anchor='w', pady=(0, 3))
     
+    # Etiqueta informativa de límites y valor por defecto
+    label_intervalo_info = tk.Label(intervalo_frame, text='(2E-8 a 1000 s, por defecto 0.2 s)', 
+                                   font=('Segoe UI', 7), 
+                                   fg='#6c757d', bg='white')
+    label_intervalo_info.pack(anchor='w', pady=(0, 3))
+    
     # Frame para el control de intervalo
     control_intervalo_frame = tk.Frame(intervalo_frame, bg='white')
     control_intervalo_frame.pack(anchor='w')
