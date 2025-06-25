@@ -40,11 +40,16 @@ trigger_slope = 'POS'  # Nuevo parámetro: 'POS' para pendiente positiva, 'NEG' 
 # Variable global para el filtro analógico ajustable (None para False, 'True' para True)
 filtro_Analog_PASSAbaja = None  # Nuevo parámetro: None para False, 'True' para True
 
+# Variable global para rastrear si se ha guardado la configuración
+configuracion_guardada = False
 
 # Función para mostrar el menú de selección de canal
 def mostrar_menu_canal(widgets):
-    global canal_seleccionado, intervalo_s, acoplamiento, impedancia, atenuacion, trigger_level, trigger_slope, filtro_Analog_PASSAbaja
+    global canal_seleccionado, intervalo_s, acoplamiento, impedancia, atenuacion, trigger_level, trigger_slope, filtro_Analog_PASSAbaja, configuracion_guardada
     frame_contenido = widgets['frame_contenido']
+    
+    # Resetear el estado de configuración guardada
+    configuracion_guardada = False
     
     # Limpiar el frame de contenido
     for widget in frame_contenido.winfo_children():
@@ -517,7 +522,7 @@ def mostrar_menu_canal(widgets):
     
     # Función para guardar selección
     def guardar_seleccion():
-        global canal_seleccionado, intervalo_s, acoplamiento, impedancia, atenuacion, trigger_level, trigger_slope, filtro_Analog_PASSAbaja
+        global canal_seleccionado, intervalo_s, acoplamiento, impedancia, atenuacion, trigger_level, trigger_slope, filtro_Analog_PASSAbaja, configuracion_guardada
         canal_seleccionado = canal_var.get()
         acoplamiento = acoplamiento_var.get()
         impedancia = impedancia_var.get()
@@ -599,6 +604,12 @@ def mostrar_menu_canal(widgets):
                 
                 # Mostrar confirmación de configuración del dispositivo
                 resultado_label.config(text=f"✓ Dispositivo configurado exitosamente. Archivo: {os.path.basename(file_path)}", fg='#27ae60')
+                
+                # Marcar configuración como guardada y habilitar botón de datalogger
+                configuracion_guardada = True
+                btn_start_stop.config(state='normal', bg='#27ae60', fg='white', cursor='hand2')
+                status_label.config(text='Estado: Listo para iniciar', fg='#27ae60')
+                
             else:
                 resultado_label.config(text="⚠ Error: Dispositivo no conectado", fg='#e74c3c')
         except Exception as e:
@@ -645,7 +656,12 @@ def mostrar_menu_canal(widgets):
     # Función para iniciar/detener datalogger
     def toggle_datalogger():
         if not datalogger_running.get():
-            # Iniciar datalogger
+            # Verificar que la configuración esté guardada
+            if not configuracion_guardada:
+                tk.messagebox.showerror('Error', 'Debe guardar la configuración antes de iniciar el datalogger.')
+                return
+            
+            # Verificar que el dispositivo esté conectado
             if cnt_device is None:
                 tk.messagebox.showerror('Error', 'Dispositivo no conectado. Conecte el CNT-91 primero.')
                 return
@@ -680,15 +696,16 @@ def mostrar_menu_canal(widgets):
     btn_start_stop = tk.Button(datalogger_controls_frame, text='▶️  Iniciar Datalogger', 
                               command=toggle_datalogger, 
                               font=('Segoe UI', 10, 'bold'),
-                              bg='#27ae60', fg='white',
+                              bg='#cccccc', fg='#666666',
                               relief='flat', padx=15, pady=5,
-                              cursor='hand2')
+                              cursor='arrow',
+                              state='disabled')
     btn_start_stop.pack(side='left', pady=(3, 0))
     
     # Label para mostrar estado del datalogger
-    status_label = tk.Label(datalogger_controls_frame, text='Estado: Listo para iniciar', 
+    status_label = tk.Label(datalogger_controls_frame, text='Estado: Configure el dispositivo primero', 
                            font=('Segoe UI', 9), 
-                           fg='#6c757d', bg='white')
+                           fg='#e74c3c', bg='white')
     status_label.pack(side='left', padx=(15, 0), pady=(3, 0))
     
     # Separador
