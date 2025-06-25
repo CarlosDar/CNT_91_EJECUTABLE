@@ -20,21 +20,43 @@ from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font
 from datetime import datetime
 from openpyxl.worksheet.table import Table, TableStyleInfo
+import atexit
+
 class CNT_frequenciometro: 
    
    
     """ Address: Dirección del recurso VISA 
     Por defecto -> "GPIB0::18::INSTR" instrumento conectado vía GPIB """   
     def __init__(self, address ='GPIB0::10::INSTR'):
+        self.address = address
+        self.dev = None
+        self._conexion_cerrada = False
+        self.file_path = None
         
+        # Registrar función de limpieza automática
+        atexit.register(self._cleanup_on_exit)
+        
+        # Configurar conexión
+        self._setup_connection()
+    
+    def _cleanup_on_exit(self):
+        """
+        Función de limpieza automática que se ejecuta al finalizar el programa.
+        Asegura que los recursos se liberen correctamente.
+        """
+        try:
+            if not self._conexion_cerrada:
+                self.cerrar_conexion()
+        except:
+            pass  # En atexit, no queremos que se lancen excepciones
+    
+    def _setup_connection(self):
         import pyvisa
         from pyvisa.highlevel import ResourceManager
-        import numpy as np
-        rm =ResourceManager() 
-        #Se crea una instancia de ResourceManager 
-        #Detección y Administración de conexion con el instrumento
         
-        self.dev=rm.open_resource(address)
+        #Detección y Administración de conexion con el instrumento
+        rm = ResourceManager()
+        self.dev=rm.open_resource(self.address)
         #Utiliza el objeto rm para abrir una 
         #conexión con el instrumento especificado por la dirección address.
         #self.dev: representa el instrumento para enviar,recibir 
@@ -2223,7 +2245,7 @@ class CNT_frequenciometro:
         if filtro_Digital_PASSAbaja is not None:
             self.dev.write(f':INP{canal_12}:FILT:DIG ON')
             self.dev.write(f':INP{canal_12}:FILT:DIG:FREQ {filtro_Digital_PASSAbaja}')
-        if filtro_Analog_PASSAbaja:
+        if filtro_Analog_PASSAbaja is True:
             self.dev.write(f':INP{canal_12}:FILT ON')
         self.dev.write('DISP:ENAB ON')
     
@@ -2305,7 +2327,14 @@ class CNT_frequenciometro:
         table.tableStyleInfo = style
         ws.add_table(table)
     
-        wb.save(full_path)
+        try:
+            wb.save(full_path)
+        except Exception as e:
+            print(f"Error al guardar archivo de configuración: {e}")
+            raise
+        finally:
+            wb.close()  # Cerrar explícitamente el archivo
+        
         # dentro de configurar_dispositivo, justo antes de return:
         self.file_path = full_path
         return full_path
@@ -2339,27 +2368,16 @@ class CNT_frequenciometro:
         # ========== Lanzamiento de medición continua ==========
         self.dev.write('INIT')
         
-        eps = 1e-12
-        T = intervalo_s
-        N = n_muestras
-        if abs(T - 4e-5) < eps and N == 2400:
-            tiempo_espera = 0.25
-        elif abs(T - 4e-4) < eps and N == 1000:
-            tiempo_espera = 0.8
-        else:
-            raw = 2 * T**0.88 * N**0.85
-            lin = 1.14 * T * N
-            val = max(raw, lin)
-            tiempo_espera = max(0.2, val) * 1.1
+        tiempo_espera = 0.25
         
         return tiempo_espera
 
-    def fetch_continuous_samples(self, n_muestras=100,tiempo_espera=1):
+    def fetch_continuous_samples(self, n_muestras=1,tiempo_espera=1):
         """
         Recupera exactamente n_muestras de la medición continua ya iniciada.
         Devuelve dos listas: frecuencias y timestamps.
         """
-        time.sleep(tiempo_espera*n_muestras*3)
+        time.sleep(tiempo_espera*n_muestras)
         # Solicita las muestras
         self.dev.write(f'FETC:ARR? {n_muestras}')
         data = self.dev.read()
@@ -2391,25 +2409,54 @@ class CNT_frequenciometro:
     def append_measurement(self, frecuencia, timestamp, hoja="Mediciones"):
         if not hasattr(self, "file_path"):
             raise RuntimeError("Primero configura el dispositivo para generar el archivo Excel.")
-        wb = load_workbook(self.file_path)
-        if hoja not in wb.sheetnames:
-            ws = wb.create_sheet(hoja)
-            ws.append(["Timestamp (s)", "Frecuencia (Hz)"])  # encabezados
-        else:
-            ws = wb[hoja]
-        ws.append([timestamp, frecuencia])
-        wb.save(self.file_path)
+        
+        try:
+            wb = load_workbook(self.file_path)
+            if hoja not in wb.sheetnames:
+                ws = wb.create_sheet(hoja)
+                ws.append(["Timestamp (s)", "Frecuencia (Hz)"])  # encabezados
+            else:
+                ws = wb[hoja]
+            ws.append([timestamp, frecuencia])
+            wb.save(self.file_path)
+            wb.close()  # Cerrar explícitamente el archivo
+        except Exception as e:
+            print(f"Error al escribir en Excel: {e}")
+            # Intentar cerrar el archivo si está abierto
+            try:
+                if 'wb' in locals():
+                    wb.close()
+            except:
+                pass
+            raise
+
+    def cerrar_archivo_excel(self):
+        """
+        Cierra de manera segura el archivo Excel si está abierto.
+        Este método debe llamarse antes de terminar el programa para evitar
+        problemas de archivos bloqueados.
+        """
+        try:
+            if hasattr(self, 'file_path') and self.file_path:
+                # Intentar cerrar cualquier archivo Excel que pueda estar abierto
+                # Esto es principalmente para limpiar recursos de openpyxl
+                import gc
+                gc.collect()  # Forzar la recolección de basura
+                print(f"Archivo Excel cerrado correctamente: {os.path.basename(self.file_path)}")
+        except Exception as e:
+            print(f"Advertencia al cerrar archivo Excel: {e}")
 
     def cerrar_conexion(self):
         """
         Cierra la conexión con el dispositivo CNT-91 de manera segura.
         
         Esta función:
-        1. Aborta cualquier medición en curso
-        2. Resetea el instrumento a su estado por defecto
-        3. Limpia el buffer de errores
-        4. Cierra la conexión VISA
-        5. Libera los recursos del ResourceManager
+        1. Cierra el archivo Excel si está abierto
+        2. Aborta cualquier medición en curso
+        3. Resetea el instrumento a su estado por defecto
+        4. Limpia el buffer de errores
+        5. Cierra la conexión VISA
+        6. Libera los recursos del ResourceManager
         
         Es importante llamar a esta función al finalizar el uso del instrumento
         para evitar problemas de comunicación en futuras sesiones.
@@ -2420,31 +2467,34 @@ class CNT_frequenciometro:
         >>> cnt.cerrar_conexion()
         """
         try:
-            # 1. Abortar cualquier medición en curso
+            # 1. Cerrar el archivo Excel primero
+            self.cerrar_archivo_excel()
+            
+            # 2. Abortar cualquier medición en curso
             try:
                 self.dev.write('ABOR')
             except:
                 pass  # Si ya está abortado, no hay problema
             
-            # 2. Resetear el instrumento a estado por defecto
+            # 3. Resetear el instrumento a estado por defecto
             try:
                 self.dev.write('*RST')
             except:
                 pass
             
-            # 3. Limpiar buffer de errores
+            # 4. Limpiar buffer de errores
             try:
                 self.dev.write('*CLS')
             except:
                 pass
             
-            # 4. Reactivar display si estaba desactivado
+            # 5. Reactivar display si estaba desactivado
             try:
                 self.dev.write('DISP:ENAB ON')
             except:
                 pass
             
-            # 5. Cerrar la conexión VISA
+            # 6. Cerrar la conexión VISA
             try:
                 if hasattr(self, 'dev') and self.dev is not None:
                     self.dev.close()
@@ -2453,7 +2503,7 @@ class CNT_frequenciometro:
             except Exception as e:
                 print(f"Advertencia al cerrar conexión VISA: {e}")
             
-            # 6. Liberar recursos del ResourceManager (opcional)
+            # 7. Liberar recursos del ResourceManager (opcional)
             # Nota: En algunas implementaciones, el ResourceManager se libera automáticamente
             # al finalizar el programa, pero es buena práctica hacerlo explícitamente
             
@@ -2480,6 +2530,26 @@ class CNT_frequenciometro:
                 self.cerrar_conexion()
         except:
             pass  # En el destructor, no queremos que se lancen excepciones
+
+    def verificar_archivo_disponible(self):
+        """
+        Verifica si el archivo Excel está disponible para escritura.
+        Útil para detectar problemas de archivos bloqueados.
+        """
+        if not hasattr(self, 'file_path') or not self.file_path:
+            return False
+        
+        try:
+            # Intentar abrir el archivo en modo escritura para verificar si está bloqueado
+            with open(self.file_path, 'a') as f:
+                pass
+            return True
+        except PermissionError:
+            print(f"Advertencia: El archivo {os.path.basename(self.file_path)} está siendo usado por otro proceso.")
+            return False
+        except Exception as e:
+            print(f"Error al verificar archivo: {e}")
+            return False
 
 
 
