@@ -9,6 +9,9 @@ from tkinter import ttk
 from frontend_widgets import crear_layout_principal, get_info_cnt91_sections, get_info_cnt91_resources
 import CNT_9X_pendulum as CNT
 import os
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import numpy as np
 
 # Variable global para el objeto del frecuencímetro
 cnt_device = None
@@ -43,13 +46,25 @@ filtro_Analog_PASSAbaja = None  # Nuevo parámetro: None para False, 'True' para
 # Variable global para rastrear si se ha guardado la configuración
 configuracion_guardada = False
 
+# Variable global para rastrear si la medición está pausada
+medicion_pausada = False
+
+# Variable global para almacenar la ruta del archivo Excel
+ruta_archivo_excel = None
+
 # Función para mostrar el menú de selección de canal
 def mostrar_menu_canal(widgets):
-    global canal_seleccionado, intervalo_s, acoplamiento, impedancia, atenuacion, trigger_level, trigger_slope, filtro_Analog_PASSAbaja, configuracion_guardada
+    global canal_seleccionado, intervalo_s, acoplamiento, impedancia, atenuacion, trigger_level, trigger_slope, filtro_Analog_PASSAbaja, configuracion_guardada, medicion_pausada, ruta_archivo_excel
     frame_contenido = widgets['frame_contenido']
     
     # Resetear el estado de configuración guardada
     configuracion_guardada = False
+    
+    # Resetear el estado de medición pausada
+    medicion_pausada = False
+    
+    # Resetear la ruta del archivo Excel
+    ruta_archivo_excel = None
     
     # Limpiar el frame de contenido
     for widget in frame_contenido.winfo_children():
@@ -522,7 +537,7 @@ def mostrar_menu_canal(widgets):
     
     # Función para guardar selección
     def guardar_seleccion():
-        global canal_seleccionado, intervalo_s, acoplamiento, impedancia, atenuacion, trigger_level, trigger_slope, filtro_Analog_PASSAbaja, configuracion_guardada
+        global canal_seleccionado, intervalo_s, acoplamiento, impedancia, atenuacion, trigger_level, trigger_slope, filtro_Analog_PASSAbaja, configuracion_guardada, ruta_archivo_excel
         canal_seleccionado = canal_var.get()
         acoplamiento = acoplamiento_var.get()
         impedancia = impedancia_var.get()
@@ -597,17 +612,19 @@ def mostrar_menu_canal(widgets):
                     atenuacion=atenuacion,
                     trigger_level=trigger_level,
                     trigger_slope=trigger_slope,
-                    filtro_Digital_PASSAbaja=None,  # Mantener None como especificaste
-                    filtro_Analog_PASSAbaja=filtro_analog_bool,   # Ahora es booleano
-                    file_path=None  # Mantener None como especificaste
+                    filtro_Digital_PASSAbaja=None,
+                    filtro_Analog_PASSAbaja=filtro_analog_bool,
+                    file_path=None
                 )
                 
-                # Mostrar confirmación de configuración del dispositivo
-                resultado_label.config(text=f"✓ Dispositivo configurado exitosamente. Archivo: {os.path.basename(file_path)}", fg='#27ae60')
+                # Actualizar la ruta del archivo Excel
+                ruta_archivo_excel = file_path
+                ruta_label.config(text=f'Guardando en: {file_path}', fg='#27ae60')
                 
                 # Marcar configuración como guardada y habilitar botón de datalogger
                 configuracion_guardada = True
                 btn_start_stop.config(state='normal', bg='#27ae60', fg='white', cursor='hand2')
+                btn_fin_medicion.config(state='normal')
                 status_label.config(text='Estado: Listo para iniciar', fg='#27ae60')
                 
             else:
@@ -640,21 +657,272 @@ def mostrar_menu_canal(widgets):
     # ===== PESTAÑA DE DATALOGGER =====
     datalogger_content_frame = tk.Frame(tabs_content_frame, bg='white')
     
+    # Crear canvas y scrollbar para contenido scrolleable
+    datalogger_canvas = tk.Canvas(datalogger_content_frame, bg='white', highlightthickness=0, bd=0)
+    datalogger_scrollbar = ttk.Scrollbar(datalogger_content_frame, orient="vertical", command=datalogger_canvas.yview)
+    
+    # Frame centrador para el contenido
+    datalogger_centrador = tk.Frame(datalogger_canvas, bg='white')
+    datalogger_scrollable_frame = tk.Frame(datalogger_centrador, bg='white')
+    datalogger_scrollable_frame.pack(anchor='center', expand=True)
+
+    # Centrar el contenido horizontalmente al redimensionar
+    def resize_datalogger_canvas(event):
+        canvas_width = event.width
+        datalogger_centrador.config(width=canvas_width)
+        datalogger_canvas.itemconfig(datalogger_window_id, width=canvas_width)
+    datalogger_canvas.bind('<Configure>', resize_datalogger_canvas)
+
+    datalogger_centrador.pack(expand=True)
+    datalogger_window_id = datalogger_canvas.create_window((0, 0), window=datalogger_centrador, anchor="n")
+    datalogger_canvas.configure(yscrollcommand=datalogger_scrollbar.set)
+
+    datalogger_scrollable_frame.bind(
+        "<Configure>",
+        lambda e: datalogger_canvas.configure(scrollregion=datalogger_canvas.bbox("all"))
+    )
+    
+    # Configurar scroll con mouse wheel
+    def _on_mousewheel(event):
+        datalogger_canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+    
+    datalogger_canvas.bind_all("<MouseWheel>", _on_mousewheel)
+    
+    # Desvincular mouse wheel cuando se salga del canvas
+    def _on_leave(event):
+        datalogger_canvas.unbind_all("<MouseWheel>")
+    
+    def _on_enter(event):
+        datalogger_canvas.bind_all("<MouseWheel>", _on_mousewheel)
+    
+    datalogger_canvas.bind('<Enter>', _on_enter)
+    datalogger_canvas.bind('<Leave>', _on_leave)
+
+    # Empaquetar canvas y scrollbar
+    datalogger_canvas.pack(side="left", fill="both", expand=True, padx=(0, 5))
+    datalogger_scrollbar.pack(side="right", fill="y")
+    
     # Título de datalogger
-    datalogger_titulo = tk.Label(datalogger_content_frame, text='Datalogger:', 
+    datalogger_titulo = tk.Label(datalogger_scrollable_frame, text='Datalogger:', 
                                 font=('Segoe UI', 10, 'bold'), 
                                 fg='#25364a', bg='white')
     datalogger_titulo.pack(anchor='w', padx=10, pady=(8, 5))
     
+    # Frame para mostrar ruta del archivo Excel
+    ruta_frame = tk.Frame(datalogger_scrollable_frame, bg='#e8f4fd', relief='solid', bd=1)
+    ruta_frame.pack(fill='x', padx=10, pady=(0, 8))
+    
+    # Título de ruta
+    ruta_titulo = tk.Label(ruta_frame, text='Archivo Excel:', 
+                          font=('Segoe UI', 8, 'bold'), 
+                          fg='#25364a', bg='#e8f4fd')
+    ruta_titulo.pack(anchor='w', padx=10, pady=(5, 2))
+    
+    # Label para mostrar ruta del archivo
+    ruta_label = tk.Label(ruta_frame, text='No se ha configurado el dispositivo', 
+                          font=('Segoe UI', 8), 
+                          fg='#e74c3c', bg='#e8f4fd',
+                          justify='left', anchor='nw')
+    ruta_label.pack(anchor='w', padx=10, pady=(0, 5))
+    
     # Frame para controles del datalogger
-    datalogger_controls_frame = tk.Frame(datalogger_content_frame, bg='white')
+    datalogger_controls_frame = tk.Frame(datalogger_scrollable_frame, bg='white')
     datalogger_controls_frame.pack(fill='x', padx=10, pady=(0, 8))
     
     # Variable para el estado del datalogger
     datalogger_running = tk.BooleanVar(value=False)
     
+    # Variables para almacenar datos de la gráfica
+    frecuencias_grafica = []
+    tiempos_relativos_grafica = []
+    
+    # Crear figura de matplotlib para la gráfica
+    fig, ax = plt.subplots(figsize=(8, 4))
+    ax.set_xlabel('Tiempo Relativo (s)', fontsize=10)
+    ax.set_ylabel('Frecuencia (Hz)', fontsize=10)
+    ax.set_title('Frecuencia vs Tiempo Relativo', fontsize=12, fontweight='bold')
+    ax.grid(True, alpha=0.3)
+    
+    # Crear canvas de matplotlib
+    canvas_frame = tk.Frame(datalogger_scrollable_frame, bg='white')
+    canvas_frame.pack(fill='both', expand=True, padx=10, pady=(0, 10))
+    
+    canvas = FigureCanvasTkAgg(fig, canvas_frame)
+    canvas_widget = canvas.get_tk_widget()
+    canvas_widget.pack(fill='both', expand=True)
+    
+    # Frame para estadísticas
+    stats_frame = tk.Frame(datalogger_scrollable_frame, bg='#f8f9fa', relief='solid', bd=1)
+    stats_frame.pack(fill='x', padx=10, pady=(0, 10))
+    
+    # Título de estadísticas
+    stats_titulo = tk.Label(stats_frame, text='Estadísticas en Tiempo Real:', 
+                           font=('Segoe UI', 9, 'bold'), 
+                           fg='#25364a', bg='#f8f9fa')
+    stats_titulo.pack(anchor='w', padx=10, pady=(8, 5))
+    
+    # Label para mostrar estadísticas
+    stats_label = tk.Label(stats_frame, text='', 
+                          font=('Segoe UI', 8), 
+                          fg='#2c3e50', bg='#f8f9fa',
+                          justify='left', anchor='nw')
+    stats_label.pack(anchor='w', padx=10, pady=(0, 8))
+    
+    # Función para actualizar la gráfica
+    def actualizar_grafica():
+        if len(frecuencias_grafica) > 0:
+            # Limpiar gráfica anterior
+            ax.clear()
+            
+            # Crear nueva gráfica
+            ax.plot(tiempos_relativos_grafica, frecuencias_grafica, 'b-', linewidth=1, alpha=0.8)
+            ax.scatter(tiempos_relativos_grafica, frecuencias_grafica, c='red', s=20, alpha=0.6)
+            
+            # Configurar ejes
+            ax.set_xlabel('Tiempo Relativo (s)', fontsize=10)
+            ax.set_ylabel('Frecuencia (Hz)', fontsize=10)
+            ax.set_title('Frecuencia vs Tiempo Relativo', fontsize=12, fontweight='bold')
+            ax.grid(True, alpha=0.3)
+            
+            # Auto-escalado inteligente
+            if len(tiempos_relativos_grafica) > 1:
+                # Para el eje X: mostrar los últimos 50 puntos o todos si hay menos
+                x_max = max(tiempos_relativos_grafica)
+                x_min = max(0, x_max - 50 * (x_max / len(tiempos_relativos_grafica)))
+                ax.set_xlim(x_min, x_max)
+                
+                # Para el eje Y: margen del 5% arriba y abajo
+                y_min, y_max = min(frecuencias_grafica), max(frecuencias_grafica)
+                y_range = y_max - y_min
+                if y_range > 0:
+                    margin = y_range * 0.05
+                    ax.set_ylim(y_min - margin, y_max + margin)
+            
+            # Actualizar canvas
+            canvas.draw()
+    
+    # Función para actualizar estadísticas
+    def actualizar_estadisticas():
+        if len(frecuencias_grafica) > 0:
+            freqs_array = np.array(frecuencias_grafica)
+            
+            # Calcular estadísticas
+            maximo = np.max(freqs_array)
+            minimo = np.min(freqs_array)
+            media = np.mean(freqs_array)
+            mediana = np.median(freqs_array)
+            desv_tipica = np.std(freqs_array)
+            varianza = np.var(freqs_array)
+            
+            # Formatear estadísticas
+            stats_text = f"""Máximo: {maximo:.6f} Hz
+Mínimo: {minimo:.6f} Hz
+Media: {media:.6f} Hz
+Mediana: {mediana:.6f} Hz
+Desv. Típica: {desv_tipica:.6f} Hz
+Varianza: {varianza:.6f} Hz²
+Nº Muestras: {len(frecuencias_grafica)}"""
+            
+            stats_label.config(text=stats_text)
+    
+    # Función para agregar punto a la gráfica
+    def agregar_punto_grafica(frecuencia, tiempo_relativo):
+        frecuencias_grafica.append(frecuencia)
+        tiempos_relativos_grafica.append(tiempo_relativo)
+        
+        # Actualizar gráfica y estadísticas
+        actualizar_grafica()
+        actualizar_estadisticas()
+    
+    # Función para finalizar medición definitivamente
+    def finalizar_medicion():
+        global medicion_pausada
+        
+        try:
+            # Guardar estadísticas finales en Excel si hay datos
+            if len(frecuencias_grafica) > 0:
+                try:
+                    # Calcular estadísticas finales
+                    freqs_array = np.array(frecuencias_grafica)
+                    maximo = np.max(freqs_array)
+                    minimo = np.min(freqs_array)
+                    media = np.mean(freqs_array)
+                    mediana = np.median(freqs_array)
+                    desv_tipica = np.std(freqs_array)
+                    varianza = np.var(freqs_array)
+                    
+                    # Guardar estadísticas en una nueva hoja del Excel
+                    from openpyxl import load_workbook
+                    wb = load_workbook(cnt_device.file_path)
+                    
+                    # Crear hoja de estadísticas
+                    if 'Estadísticas' in wb.sheetnames:
+                        ws_stats = wb['Estadísticas']
+                    else:
+                        ws_stats = wb.create_sheet('Estadísticas')
+                    
+                    # Limpiar hoja de estadísticas
+                    ws_stats.delete_rows(1, ws_stats.max_row)
+                    
+                    # Escribir estadísticas
+                    ws_stats.append(['ESTADÍSTICAS FINALES DE LA MEDICIÓN'])
+                    ws_stats.append([])
+                    ws_stats.append(['Parámetro', 'Valor', 'Unidad'])
+                    ws_stats.append(['Máximo', maximo, 'Hz'])
+                    ws_stats.append(['Mínimo', minimo, 'Hz'])
+                    ws_stats.append(['Media', media, 'Hz'])
+                    ws_stats.append(['Mediana', mediana, 'Hz'])
+                    ws_stats.append(['Desviación Típica', desv_tipica, 'Hz'])
+                    ws_stats.append(['Varianza', varianza, 'Hz²'])
+                    ws_stats.append(['Número de Muestras', len(frecuencias_grafica), ''])
+                    
+                    # Guardar Excel
+                    wb.save(cnt_device.file_path)
+                    wb.close()
+                    
+                    print("Estadísticas finales guardadas en Excel.")
+                    
+                except Exception as e:
+                    print(f"Advertencia al guardar estadísticas: {e}")
+            
+            # Cerrar el archivo Excel de manera definitiva
+            try:
+                cnt_device.cerrar_archivo_excel()
+                print("Archivo Excel cerrado definitivamente.")
+            except Exception as e:
+                print(f"Advertencia al cerrar archivo Excel: {e}")
+            
+            # Abortar la medición continua si está activa
+            try:
+                cnt_device.abort_continuous_measurement()
+            except Exception as e:
+                print(f"Advertencia al abortar medición: {e}")
+            
+            # Resetear estados
+            datalogger_running.set(False)
+            medicion_pausada = False
+            
+            # Limpiar ruta del archivo Excel
+            ruta_archivo_excel = None
+            ruta_label.config(text='Archivo Excel cerrado', fg='#e74c3c')
+            
+            # Restaurar estado de la interfaz
+            btn_start_stop.config(text='▶️  Iniciar Datalogger', bg='#27ae60', fg='white', cursor='hand2', state='normal')
+            btn_fin_medicion.config(state='disabled')
+            status_label.config(text='Estado: Medición finalizada', fg='#6c757d')
+            
+            # Actualizar información de configuración
+            actualizar_info_configuracion()
+            
+            tk.messagebox.showinfo('Medición Finalizada', 'La medición se ha finalizado definitivamente. Las estadísticas han sido guardadas en el archivo Excel.')
+            
+        except Exception as e:
+            tk.messagebox.showerror('Error', f'Error al finalizar medición: {str(e)}')
+    
     # Función para iniciar/detener datalogger
     def toggle_datalogger():
+        global cnt_device, medicion_pausada
+        
         if not datalogger_running.get():
             # Verificar que la configuración esté guardada
             if not configuracion_guardada:
@@ -667,30 +935,162 @@ def mostrar_menu_canal(widgets):
                 return
             
             try:
-                # Aquí iría la lógica para iniciar el datalogger
-                # Por ahora solo simulamos el inicio
-                datalogger_running.set(True)
-                btn_start_stop.config(text='⏹️  Detener Datalogger', bg='#e74c3c')
-                status_label.config(text='Estado: Ejecutando datalogger...', fg='#27ae60')
+                # Si es una nueva medición (no pausada), limpiar datos
+                if not medicion_pausada:
+                    # Limpiar datos de gráfica anteriores
+                    frecuencias_grafica.clear()
+                    tiempos_relativos_grafica.clear()
+                    actualizar_grafica()
+                    actualizar_estadisticas()
+                    
+                    # Configurar el dispositivo usando las variables globales
+                    impedancia_convertida = 'MAX' if impedancia == 'Max' else 'MIN'
+                    filtro_analog_bool = True if filtro_Analog_PASSAbaja == 'True' else False
+                    
+                    # Configurar el dispositivo
+                    file_path = cnt_device.configurar_dispositivo(
+                        canal=canal_seleccionado,
+                        intervalo_s=intervalo_s,
+                        acoplamiento=acoplamiento,
+                        impedancia=impedancia_convertida,
+                        atenuacion=atenuacion,
+                        trigger_level=trigger_level,
+                        trigger_slope=trigger_slope,
+                        filtro_Digital_PASSAbaja=None,
+                        filtro_Analog_PASSAbaja=filtro_analog_bool,
+                        file_path=None
+                    )
+                    
+                    # Actualizar la ruta del archivo Excel
+                    ruta_archivo_excel = file_path
+                    ruta_label.config(text=f'Guardando en: {file_path}', fg='#27ae60')
+                    
+                    # Iniciar medición continua
+                    tiempo_espera = cnt_device.start_continuous_measurement(
+                        intervalo_s=intervalo_s, 
+                        canal=canal_seleccionado
+                    )
+                else:
+                    # Si es reanudación, solo reiniciar la medición continua
+                    tiempo_espera = cnt_device.start_continuous_measurement(
+                        intervalo_s=intervalo_s, 
+                        canal=canal_seleccionado
+                    )
                 
-                # Aquí se llamaría a la función de datalogger del CNT_9X_pendulum.py
-                # cnt_device.iniciar_datalogger()
+                # Calcular parámetros de buffer según el intervalo
+                if intervalo_s < 2:
+                    tiempo_espera = 0
+                    lenght = 10
+                elif intervalo_s < 5:
+                    lenght = 1
+                    tiempo_espera = 2.5 * (intervalo_s - 2) ** 2 + 0.09
+                elif intervalo_s < 10:
+                    lenght = 2
+                    tiempo_espera = 1.2 * intervalo_s + 0.09
+                else:
+                    lenght = 1
+                    tiempo_espera = intervalo_s + 5
+                
+                # Variables para el bucle de medición
+                buffer_frecs = []
+                t0 = None  # Primer timestamp para calcular tiempos relativos
+                
+                # Si es reanudación, usar el último tiempo relativo como base
+                if medicion_pausada and len(tiempos_relativos_grafica) > 0:
+                    t0_offset = max(tiempos_relativos_grafica)
+                else:
+                    t0_offset = 0
+                
+                # Función interna para el bucle de medición
+                def medicion_loop():
+                    nonlocal buffer_frecs, t0
+                    
+                    if datalogger_running.get():
+                        try:
+                            # Obtener muestras
+                            frecs, ts = cnt_device.fetch_continuous_samples(
+                                n_muestras=1,
+                                tiempo_espera=tiempo_espera
+                            )
+                            
+                            for f, t in zip(frecs, ts):
+                                if t0 is None:
+                                    t0 = t
+                                t_rel = t - t0 + t0_offset
+                                buffer_frecs.append((f, t, t_rel))
+                                
+                                # Agregar punto a la gráfica en tiempo real
+                                agregar_punto_grafica(f, t_rel)
+                                
+                                # Actualizar estado en la interfaz
+                                status_label.config(text=f'Estado: Midiendo... Frecuencia: {f:.6f} Hz, T. Relativo: {t_rel:.3f} s', fg='#27ae60')
+                                
+                                # Actualizar información de configuración con datos en tiempo real
+                                info_text = f"""Canal: {canal_seleccionado}
+Intervalo: {intervalo_s:.6f} s
+Acoplamiento: {acoplamiento}
+Impedancia: {impedancia}
+Atenuación: {atenuacion}x
+Trigger: {'Automático' if trigger_level is None else f'{trigger_level:.1f}V'}
+Pendiente: {trigger_slope}
+Filtro Analógico: {'True' if filtro_Analog_PASSAbaja == 'True' else 'False'}
+
+Última medición:
+Frecuencia: {f:.6f} Hz
+Timestamp: {t:.6f} s
+T. Relativo: {t_rel:.6f} s"""
+                                info_label.config(text=info_text)
+                            
+                            # Guardar en Excel cuando el buffer esté lleno
+                            if len(buffer_frecs) >= lenght:
+                                for f, t, t_rel in buffer_frecs:
+                                    cnt_device.append_measurement(f, t, t_rel)
+                                buffer_frecs.clear()
+                            
+                            # Programar la siguiente medición
+                            root.after(100, medicion_loop)  # 100ms entre mediciones
+                            
+                        except Exception as e:
+                            tk.messagebox.showerror('Error', f'Error durante la medición: {str(e)}')
+                            datalogger_running.set(False)
+                            btn_start_stop.config(text='▶️  Iniciar Datalogger', bg='#27ae60', fg='white', cursor='hand2')
+                            status_label.config(text='Estado: Error en medición', fg='#e74c3c')
+                
+                # Iniciar el bucle de medición
+                datalogger_running.set(True)
+                medicion_pausada = False
+                btn_start_stop.config(text='⏸️  Pausar Datalogger', bg='#f39c12', fg='white', cursor='hand2')
+                btn_fin_medicion.config(state='normal')
+                status_label.config(text='Estado: Iniciando medición...', fg='#27ae60')
+                
+                # Iniciar el bucle de medición
+                medicion_loop()
                 
             except Exception as e:
                 tk.messagebox.showerror('Error', f'Error al iniciar datalogger: {str(e)}')
                 datalogger_running.set(False)
+                btn_start_stop.config(text='▶️  Iniciar Datalogger', bg='#27ae60', fg='white', cursor='hand2')
+                status_label.config(text='Estado: Error al iniciar', fg='#e74c3c')
         else:
-            # Detener datalogger
+            # Pausar datalogger (no cerrar Excel)
             try:
-                # Aquí iría la lógica para detener el datalogger
-                # cnt_device.detener_datalogger()
-                
                 datalogger_running.set(False)
-                btn_start_stop.config(text='▶️  Iniciar Datalogger', bg='#27ae60')
-                status_label.config(text='Estado: Datalogger detenido', fg='#6c757d')
+                medicion_pausada = True
+                
+                # Solo abortar la medición continua, NO cerrar Excel
+                try:
+                    cnt_device.abort_continuous_measurement()
+                except Exception as e:
+                    print(f"Advertencia al abortar medición: {e}")
+                
+                # Cambiar botón a "Reanudar"
+                btn_start_stop.config(text='▶️  Reanudar Datalogger', bg='#27ae60', fg='white', cursor='hand2')
+                status_label.config(text='Estado: Datalogger pausado', fg='#f39c12')
+                
+                tk.messagebox.showinfo('Datalogger Pausado', 'La medición se ha pausado. Puede reanudarla o finalizarla definitivamente.')
                 
             except Exception as e:
-                tk.messagebox.showerror('Error', f'Error al detener datalogger: {str(e)}')
+                tk.messagebox.showerror('Error', f'Error al pausar datalogger: {str(e)}')
     
     # Botón para iniciar/detener datalogger
     btn_start_stop = tk.Button(datalogger_controls_frame, text='▶️  Iniciar Datalogger', 
@@ -702,6 +1102,16 @@ def mostrar_menu_canal(widgets):
                               state='disabled')
     btn_start_stop.pack(side='left', pady=(3, 0))
     
+    # Botón para finalizar medición (rojo)
+    btn_fin_medicion = tk.Button(datalogger_controls_frame, text='🔴  FIN DE MEDICIÓN', 
+                                command=lambda: finalizar_medicion(),
+                                font=('Segoe UI', 10, 'bold'),
+                                bg='#e74c3c', fg='white',
+                                relief='flat', padx=15, pady=5,
+                                cursor='hand2',
+                                state='disabled')
+    btn_fin_medicion.pack(side='left', padx=(10, 0), pady=(3, 0))
+    
     # Label para mostrar estado del datalogger
     status_label = tk.Label(datalogger_controls_frame, text='Estado: Configure el dispositivo primero', 
                            font=('Segoe UI', 9), 
@@ -709,11 +1119,11 @@ def mostrar_menu_canal(widgets):
     status_label.pack(side='left', padx=(15, 0), pady=(3, 0))
     
     # Separador
-    separador_datalogger = tk.Frame(datalogger_content_frame, height=1, bg='#e0e0e0')
+    separador_datalogger = tk.Frame(datalogger_scrollable_frame, height=1, bg='#e0e0e0')
     separador_datalogger.pack(fill='x', padx=10, pady=10)
     
     # Frame para información de configuración actual
-    info_frame = tk.Frame(datalogger_content_frame, bg='#f8f9fa', relief='solid', bd=1)
+    info_frame = tk.Frame(datalogger_scrollable_frame, bg='#f8f9fa', relief='solid', bd=1)
     info_frame.pack(fill='x', padx=10, pady=(0, 10))
     
     # Título de información
@@ -721,6 +1131,13 @@ def mostrar_menu_canal(widgets):
                           font=('Segoe UI', 9, 'bold'), 
                           fg='#25364a', bg='#f8f9fa')
     info_titulo.pack(anchor='w', padx=10, pady=(8, 5))
+    
+    # Label para mostrar información de configuración
+    info_label = tk.Label(info_frame, text='', 
+                         font=('Segoe UI', 8), 
+                         fg='#2c3e50', bg='#f8f9fa',
+                         justify='left', anchor='nw')
+    info_label.pack(anchor='w', padx=10, pady=(0, 8))
     
     # Función para actualizar información de configuración
     def actualizar_info_configuracion():
@@ -745,13 +1162,6 @@ Pendiente: {trigger_slope}
 Filtro Analógico: {filtro_formato}"""
         
         info_label.config(text=info_text)
-    
-    # Label para mostrar información de configuración
-    info_label = tk.Label(info_frame, text='', 
-                         font=('Segoe UI', 8), 
-                         fg='#2c3e50', bg='#f8f9fa',
-                         justify='left', anchor='nw')
-    info_label.pack(anchor='w', padx=10, pady=(0, 8))
     
     # Mostrar la pestaña de configuración por defecto
     switch_tab('config')
@@ -972,10 +1382,51 @@ def desconectar_dispositivo(widgets):
         btn_conectar.estado_conectado = False
         btn_mediciones.config(state='disabled')
 
+# Función para manejar el cierre de la ventana
+def on_closing(root, widgets):
+    """Maneja el cierre correcto de la aplicación"""
+    try:
+        # Si hay un dispositivo conectado, desconectarlo
+        if cnt_device is not None:
+            print("Cerrando conexión con el dispositivo...")
+            desconectar_dispositivo(widgets)
+        
+        # Si hay una medición en curso, finalizarla
+        if 'datalogger_running' in globals() and datalogger_running.get():
+            print("Finalizando medición en curso...")
+            try:
+                # Abortar medición continua
+                cnt_device.abort_continuous_measurement()
+            except:
+                pass
+        
+        # Si hay un archivo Excel abierto, cerrarlo
+        if 'ruta_archivo_excel' in globals() and ruta_archivo_excel is not None:
+            print("Cerrando archivo Excel...")
+            try:
+                cnt_device.cerrar_archivo_excel()
+            except:
+                pass
+        
+        print("Cerrando aplicación...")
+        
+    except Exception as e:
+        print(f"Error durante el cierre: {e}")
+    
+    finally:
+        # Destruir la ventana principal
+        root.destroy()
+        # Salir del programa
+        import sys
+        sys.exit(0)
+
 if __name__ == '__main__':
     # Crear la ventana principal de la aplicación
     root = tk.Tk()
     widgets = crear_layout_principal(root)
+
+    # Configurar el protocolo de cierre de ventana
+    root.protocol("WM_DELETE_WINDOW", lambda: on_closing(root, widgets))
 
     # Importar messagebox aquí para evitar problemas de importación circular
     import tkinter.messagebox
