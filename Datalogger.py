@@ -29,7 +29,7 @@ objt_prueba.dev = dev
 """ ****************************** SELECCION DE LA CONFIGURACIÓN POR EL USUARIO *************************** """
 
 canal = '1'
-intervalo_s = 2E-8
+intervalo_s = 2e-1
 acoplamiento = 'DC'
 impedancia = 'MIN'
 atenuacion = 1
@@ -37,6 +37,7 @@ trigger_level = None
 trigger_slope = 'POS'
 filtro_Digital_PASSAbaja = None
 filtro_Analog_PASSAbaja = True
+
 
 canales = {'A': 'A', 'B': 'B', '1': 'A', '2': 'B'}
 ch = str(canal).upper()
@@ -55,31 +56,48 @@ ruta = objt_prueba.configurar_dispositivo(
     trigger_level=trigger_level,
     trigger_slope=trigger_slope,
     filtro_Digital_PASSAbaja=filtro_Digital_PASSAbaja,
-    filtro_Analog_PASSAbaja=filtro_Analog_PASSAbaja
+    filtro_Analog_PASSAbaja=filtro_Analog_PASSAbaja,
+    
 )
 
 """ ****************************** BOTÓN START/STOP MEDICIÓN CONTINUA *************************** """
+n_muestras = 1
 
 tiempo_espera = objt_prueba.start_continuous_measurement(intervalo_s=intervalo_s, canal=canal_cmd)
 
 """ ****************************** Realizamos extracciones Mediciónes de Frecuencias *************************** """
 print("Iniciando medición continua (Ctrl+C para parar)...")
+if intervalo_s < 2:
+    tiempo_espera = 0
+    lenght = 10
+elif intervalo_s < 5:
+    lenght = 1
+    tiempo_espera = 2.5 * (intervalo_s - 2) ** 2 + 0.09
+elif intervalo_s < 10:
+    lenght = 2
+    tiempo_espera = 1.2 * (intervalo_s )  + 0.09
+else:
+    lenght = 1
+    tiempo_espera =  (intervalo_s ) + 5
 try:
     buffer_frecs = []
     buffer_ts = []
+    t0 = None  # Primer timestamp para calcular tiempos relativos
     while True:
         frecs, ts = objt_prueba.fetch_continuous_samples(
-            n_muestras=1,
-            tiempo_espera=0
+            n_muestras=n_muestras,
+            tiempo_espera=tiempo_espera
         )
         for f, t in zip(frecs, ts):
-            buffer_frecs.append(f)
-            buffer_ts.append(t)
-            print(f"Muestra: {f:.9f} Hz  a t = {t:.9f} s")
+            if t0 is None:
+                t0 = t
+            t_rel = t - t0
+            buffer_frecs.append((f, t, t_rel))
+            print(f"Muestra: {f:.9f} Hz  a t = {t:.9f} s  (T. Relativo = {t_rel:.9f} s)")
         
-        if len(buffer_frecs) >= 10:
-            for f, t in zip(buffer_frecs, buffer_ts):
-                objt_prueba.append_measurement(f, t)
+        if len(buffer_frecs) >= lenght:
+            for f, t, t_rel in buffer_frecs:
+                objt_prueba.append_measurement(f, t, t_rel)
             buffer_frecs.clear()
             buffer_ts.clear()
 

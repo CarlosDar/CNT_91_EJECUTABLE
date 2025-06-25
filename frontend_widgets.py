@@ -96,16 +96,16 @@ def crear_layout_principal(root):
     sep1 = tk.Frame(frame_lateral, bg='#34495e', height=2)
     sep1.pack(fill='x', padx=20, pady=(0, 10))
 
-    # Botón Configuración
-    btn_config = ttk.Button(frame_lateral, text='⚙️  Configuración', style='Sidebar.TButton')
+    # Botón Allan Deviation vs tau (antes: Configuración)
+    btn_config = ttk.Button(frame_lateral, text='Allan Deviation vs tau', style='Sidebar.TButton')
     btn_config.pack(fill='x', padx=20, pady=(0, 10))
 
     # Botón Frequency Datalogger
     btn_mediciones = ttk.Button(frame_lateral, text='📈  Frequency Datalogger', style='Sidebar.TButton')
     btn_mediciones.pack(fill='x', padx=20, pady=(0, 10))
 
-    # Botón Información
-    btn_info = ttk.Button(frame_lateral, text='ℹ️  Información CNT-91', style='Sidebar.TButton')
+    # Botón Información (icono profesional)
+    btn_info = ttk.Button(frame_lateral, text='🛈  Información CNT-91', style='Sidebar.TButton')
     btn_info.pack(fill='x', padx=20, pady=(0, 10))
 
     # Simular esquinas redondeadas y efecto hover
@@ -162,3 +162,99 @@ def crear_layout_principal(root):
         'estado': estado,
         'frame_contenido': frame_contenido
     } 
+
+def get_info_cnt91_sections():
+    """
+    Devuelve la lista de secciones (título, texto) para la información del CNT-91.
+    """
+    return [
+        ("Descripción General", """
+El CNT-91 de Pendulum Instruments es un contador/temporizador/análisis de modulación de ultra alta resolución y rendimiento, diseñado para cubrir todas las necesidades de medición de tiempo y frecuencia en laboratorios de I+D, producción, control de calidad y calibración.
+
+Está construido sobre una arquitectura basada en un oscilador de referencia interno de alta estabilidad, con opción de un oscilador de rubidio en la versión CNT-91R, que proporciona una excepcional estabilidad a largo plazo (típicamente mejor que 5×10⁻¹¹/día). En ausencia de esta opción, se puede seleccionar una base de tiempo OCXO de precisión o incluso operar con una referencia externa (10 MHz).
+
+Internamente, el equipo utiliza técnicas de conteo recíproco interpolado, lo que le permite lograr resoluciones de hasta 12 dígitos por segundo de medición o una resolución temporal de 50 ps en modo de intervalo de tiempo. Este principio consiste en sincronizar la medición con los flancos del evento de entrada y luego aplicar interpolación analógica mediante carga de capacitores y posterior conversión ADC, reduciendo el error de cuantización a valores extremadamente bajos.
+
+Su capacidad de medición "zero dead-time" lo hace único en su categoría, permitiendo capturar secuencias continuas de datos sin pérdida de información entre muestras, incluso en aplicaciones exigentes como ADEV, TIE o detección de glitches.
+        """),
+        ("Características Principales", """
+• Rango de frecuencia: Desde DC hasta 300 MHz (en entradas A y B).
+
+• Resolución de tiempo: Hasta 50 ps en modo de medición de intervalo de tiempo (T.I.) y 100 ps en mediciones estándar.
+
+• Resolución de frecuencia: Hasta 12 dígitos/s; 1×10⁻¹¹ en 100 ms gracias al método de recuento recíproco interpolado.
+
+• Zero-dead-time: Medición continua sin tiempo muerto, ideal para análisis de estabilidad tipo ADEV, TIE y TDEV, y para capturar micro-glitches de frecuencia.
+
+• Mediciones back-to-back (BtB): Permite registrar series continuas de frecuencia o tiempo sin lag entre muestras, crucial para estudios de estabilidad.
+
+• Entradas múltiples: Dos canales principales (A y B) con ajustes de impedancia, acoplamiento, filtrado analógico y digital, y un canal C opcional (según versión).
+
+• Modulación Domain Analysis (TimeView™): Software opcional para análisis de comportamiento dinámico de frecuencia y detección de inestabilidades como jitter o glitch.
+
+• Interfaz GPIB y USB: Hasta 4,000 resultados/s en GPIB y 10,000 mediciones/s en bloque; compatible con modo HP53132A para integración en sistemas existentes.
+
+• Pantalla gráfica LCD retroiluminada: Permite visualizar resultados, histogramas, tendencia y alertas de límite en tiempo real.
+
+• Trigger Hold-off programable: Evita falsas activaciones en presencia de rebotes o ruido.
+
+• Capacidad de timestamping continuo: Ideal para cálculo de ADEV, TIE, TDEV y estudios térmicos o de arranque.
+        """),
+        ("¿Cómo realiza el CNT-91 las mediciones de frecuencia?", """
+El CNT-91 mide frecuencia mediante conteo recíproco interpolado, una técnica que ofrece mucho mayor resolución que el conteo directo. En lugar de contar cuántos ciclos de la señal ocurren durante un intervalo fijo de tiempo (como hacen los contadores tradicionales), el CNT-91 mide el tiempo exacto entre eventos de la señal de entrada con interpolación analógica de los flancos. Luego, calcula la frecuencia como el inverso del período medido.
+
+Por ejemplo, para señales de baja frecuencia, mide con precisión el período de la señal (el tiempo entre dos flancos) y lo invierte. Para señales más rápidas, cuenta múltiples ciclos y aplica interpolación de los flancos inicial y final, reduciendo el error.
+
+La interpolación se realiza en hardware, cargando un capacitor con corriente constante desde el momento del flanco de la señal hasta el siguiente pulso del reloj de referencia. El voltaje resultante se convierte en una medida de subintervalo con una resolución de hasta 50 ps.
+
+Este principio permite que la resolución de frecuencia mejore con el tiempo de medición, sin depender directamente de la frecuencia de entrada. A modo de ejemplo:
+
+• En solo 100 ms, se alcanza una resolución relativa de 1×10⁻¹¹.
+• Se pueden obtener 12 dígitos/s para frecuencias desde Hz hasta cientos de MHz.
+        """),
+        ("Medición de trenes de pulsos (Pulse Trains o Burst Mode)", """
+Además de las funciones tradicionales de frecuencia y período, el CNT-91 incluye un modo especial para señales moduladas por pulsos (burst signals), común en osciladores que emiten trenes de pulsos o señales activadas periódicamente (como salidas sincronizadas en telecomunicaciones o GPS).
+
+En este modo:
+
+• El equipo sincroniza la medición con la aparición del burst, ignorando el tiempo de inactividad entre bursts.
+
+• La frecuencia portadora dentro del burst se mide como si fuera una señal continua, sin necesidad de señal de armado externa.
+
+• También se puede medir la frecuencia de repetición del burst (PRF - Pulse Repetition Frequency).
+
+• El usuario define un retardo de sincronización (Sync Delay) y un número de ciclos a medir dentro del burst. Esto permite hacer mediciones precisas dentro del burst sin errores causados por transitorios o jitter de activación.
+
+Este tipo de medición es vital para:
+
+• Análisis de comportamiento de arranque (warm-up)
+• Medición de estabilidad transitoria
+• Validación de señales disparadas por eventos externos o controladores digitales
+        """),
+        ("Aplicaciones", """
+• Mediciones de frecuencia de alta precisión: Ajuste, verificación y caracterización de osciladores.
+
+• Calibración de equipos: Estándares de frecuencia, generadores, analizadores de espectro y sincronización de relojes.
+
+• Investigación y desarrollo: Análisis de comportamiento de arranque, estabilidad a corto y largo plazo, análisis de PLLs y detección de glitches.
+
+• Control de calidad: Verificación de parámetros de tiempo y frecuencia según especificaciones técnicas.
+
+• Telecomunicaciones: Medición de parámetros de wander (TIE, TDEV) en relojes síncronos de red (ej. Stratum 1 a 3).
+
+• Producción automatizada: Capacidad de medir conmutando rápidamente entre dispositivos (DUTs), detección de DUTs fallidos en 10 ms, y modo de presentación con límites de aceptación visuales.
+
+• Medición de estabilidad a corto plazo (ADEV): Cálculo automático de σᵧ(τ) hasta 5000 s usando timestamping continuo.
+        """)
+    ]
+
+def get_info_cnt91_resources():
+    """
+    Devuelve la lista de recursos oficiales (icono, texto, url) para la información del CNT-91.
+    """
+    return [
+        ('\u2197', 'Página del Producto Pendulum', 'https://pendulum-instruments.com/products/frequency-counters-analyzers/cnt-91-91r/'),
+        ('\U0001F4C4', 'Datasheet', 'https://pendulum-instruments.com/wp-content/uploads/2022/05/pendulum-cnt-91-91r_timer-counter-analyzer-calibrator.pdf'),
+        ('\U0001F4D6', 'Manual de Usuario', 'https://pendulum-instruments.com/wp-content/uploads/2022/05/pendulum-cnt-91-91r_timer-counter-analyzer-calibrator.pdf'),
+        ('\U0001F4BB', 'Manual de Programador', 'https://pendulum-instruments.com/wp-content/uploads/2022/05/CNT-90ph.pdf'),
+    ] 

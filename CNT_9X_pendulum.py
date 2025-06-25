@@ -2200,7 +2200,8 @@ class CNT_frequenciometro:
                                trigger_slope='POS',
                                filtro_Digital_PASSAbaja=None,
                                filtro_Analog_PASSAbaja=None,
-                               file_path=None):
+                               file_path=None
+                               ):
         """
         Configura el dispositivo según parámetros dados y guarda la configuración en un archivo Excel
         dentro de la subcarpeta "Datalogger_Mediciones".
@@ -2406,7 +2407,7 @@ class CNT_frequenciometro:
         self.dev.write('ABOR')          # TERMINA LA MEDICIÓN CONTINUA 
         self.dev.write('DISP:ENAB ON')           # Display ON   
 
-    def append_measurement(self, frecuencia, timestamp, hoja="Mediciones"):
+    def append_measurement(self, frecuencia, timestamp, t_relativo=None, hoja="Mediciones"):
         if not hasattr(self, "file_path"):
             raise RuntimeError("Primero configura el dispositivo para generar el archivo Excel.")
         
@@ -2414,10 +2415,11 @@ class CNT_frequenciometro:
             wb = load_workbook(self.file_path)
             if hoja not in wb.sheetnames:
                 ws = wb.create_sheet(hoja)
-                ws.append(["Timestamp (s)", "Frecuencia (Hz)"])  # encabezados
+                ws.append(["Timestamp (s)", "T. Relativo (s)", "Frecuencia (Hz)"])  # encabezados
             else:
                 ws = wb[hoja]
-            ws.append([timestamp, frecuencia])
+            # Si t_relativo no se pasa, lo dejamos vacío
+            ws.append([timestamp, t_relativo if t_relativo is not None else "", frecuencia])
             wb.save(self.file_path)
             wb.close()  # Cerrar explícitamente el archivo
         except Exception as e:
@@ -2443,8 +2445,41 @@ class CNT_frequenciometro:
                 import gc
                 gc.collect()  # Forzar la recolección de basura
                 print(f"Archivo Excel cerrado correctamente: {os.path.basename(self.file_path)}")
+                
+                # Limpiar archivos temporales de openpyxl
+                self._limpiar_archivos_temporales()
+                
         except Exception as e:
             print(f"Advertencia al cerrar archivo Excel: {e}")
+
+    def _limpiar_archivos_temporales(self):
+        """
+        Limpia los archivos temporales de openpyxl que pueden causar problemas.
+        """
+        try:
+            import tempfile
+            import glob
+            
+            # Obtener el directorio temporal del sistema
+            temp_dir = tempfile.gettempdir()
+            
+            # Buscar archivos temporales de openpyxl
+            pattern = os.path.join(temp_dir, "openpyxl.*")
+            temp_files = glob.glob(pattern)
+            
+            # Eliminar archivos temporales
+            for temp_file in temp_files:
+                try:
+                    if os.path.exists(temp_file):
+                        os.remove(temp_file)
+                        print(f"Archivo temporal eliminado: {os.path.basename(temp_file)}")
+                except Exception as e:
+                    # No mostrar error si no se puede eliminar (puede estar en uso)
+                    pass
+                    
+        except Exception as e:
+            # No mostrar error si no se puede limpiar
+            pass
 
     def cerrar_conexion(self):
         """
@@ -2550,6 +2585,43 @@ class CNT_frequenciometro:
         except Exception as e:
             print(f"Error al verificar archivo: {e}")
             return False
+
+    @staticmethod
+    def limpiar_archivos_temporales_manual():
+        """
+        Método estático para limpiar manualmente los archivos temporales de openpyxl.
+        Útil para resolver problemas de archivos bloqueados.
+        """
+        try:
+            import tempfile
+            import glob
+            
+            # Obtener el directorio temporal del sistema
+            temp_dir = tempfile.gettempdir()
+            
+            # Buscar archivos temporales de openpyxl
+            pattern = os.path.join(temp_dir, "openpyxl.*")
+            temp_files = glob.glob(pattern)
+            
+            if not temp_files:
+                print("No se encontraron archivos temporales de openpyxl.")
+                return
+            
+            # Eliminar archivos temporales
+            eliminados = 0
+            for temp_file in temp_files:
+                try:
+                    if os.path.exists(temp_file):
+                        os.remove(temp_file)
+                        eliminados += 1
+                        print(f"Archivo temporal eliminado: {os.path.basename(temp_file)}")
+                except Exception as e:
+                    print(f"No se pudo eliminar {os.path.basename(temp_file)}: {e}")
+            
+            print(f"Se eliminaron {eliminados} archivos temporales de openpyxl.")
+            
+        except Exception as e:
+            print(f"Error al limpiar archivos temporales: {e}")
 
 
 
