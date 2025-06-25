@@ -75,7 +75,7 @@ tiempo_espera = objt_prueba.start_continuous_measurement(intervalo_s=2E-4, canal
 """ ****************************** Realizamos extracciones Mediciónes de Frecuencias *************************** """
 # En lugar de esto tal vez es un bucle de hacer un fetch max he ir limpiando así
 
-frecs, ts = objt_prueba.fetch_continuous_samples(n_muestras=3,tiempo_espera = tiempo_espera)
+frecs, ts = objt_prueba.fetch_continuous_samples(n_muestras=1,tiempo_espera = tiempo_espera)
 for f, t in zip(frecs, ts):
     objt_prueba.append_measurement(f, t)
     print(f"Muestra: {f:.9f} Hz  a t = {t:.9f} s")

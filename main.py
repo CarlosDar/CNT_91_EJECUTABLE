@@ -5,7 +5,8 @@
 # Al ejecutarlo, se carga la ventana principal con el diseño profesional definido en frontend_widgets.py
 
 import tkinter as tk
-from frontend_widgets import crear_layout_principal
+from tkinter import ttk
+from frontend_widgets import crear_layout_principal, get_info_cnt91_sections, get_info_cnt91_resources
 import CNT_9X_pendulum as CNT
 import os
 
@@ -42,7 +43,7 @@ filtro_Analog_PASSAbaja = None  # Nuevo parámetro: None para False, 'True' para
 
 # Función para mostrar el menú de selección de canal
 def mostrar_menu_canal(widgets):
-    global canal_seleccionado, intervalo_s, acoplamiento, impedancia
+    global canal_seleccionado, intervalo_s, acoplamiento, impedancia, atenuacion, trigger_level, trigger_slope, filtro_Analog_PASSAbaja
     frame_contenido = widgets['frame_contenido']
     
     # Limpiar el frame de contenido
@@ -66,12 +67,61 @@ def mostrar_menu_canal(widgets):
     separador = tk.Frame(titulo_frame, height=1, bg='#2980f2')
     separador.pack(fill='x', pady=(3, 0))
     
-    # Frame de configuración
-    config_frame = tk.Frame(main_frame, bg='white', relief='solid', bd=1)
-    config_frame.pack(fill='x', pady=(0, 5))
+    # Frame para las pestañas
+    tabs_frame = tk.Frame(main_frame, bg='white', relief='solid', bd=1)
+    tabs_frame.pack(fill='both', expand=True)
+    
+    # Frame superior para los botones de pestañas
+    tabs_buttons_frame = tk.Frame(tabs_frame, bg='#f8f9fa', height=40)
+    tabs_buttons_frame.pack(fill='x')
+    tabs_buttons_frame.pack_propagate(False)
+    
+    # Frame para el contenido de las pestañas
+    tabs_content_frame = tk.Frame(tabs_frame, bg='white')
+    tabs_content_frame.pack(fill='both', expand=True)
+    
+    # Variables para controlar las pestañas
+    current_tab = tk.StringVar(value='config')
+    
+    # Función para cambiar entre pestañas
+    def switch_tab(tab_name):
+        current_tab.set(tab_name)
+        # Ocultar todos los frames de contenido
+        for widget in tabs_content_frame.winfo_children():
+            widget.pack_forget()
+        
+        # Mostrar el frame correspondiente
+        if tab_name == 'config':
+            config_content_frame.pack(fill='both', expand=True)
+            btn_config_tab.config(bg='#2980f2', fg='white')
+            btn_datalogger_tab.config(bg='#f8f9fa', fg='#25364a')
+        else:
+            datalogger_content_frame.pack(fill='both', expand=True)
+            btn_config_tab.config(bg='#f8f9fa', fg='#25364a')
+            btn_datalogger_tab.config(bg='#2980f2', fg='white')
+    
+    # Botones de pestañas
+    btn_config_tab = tk.Button(tabs_buttons_frame, text='Configuración', 
+                              command=lambda: switch_tab('config'),
+                              font=('Segoe UI', 10, 'bold'),
+                              bg='#2980f2', fg='white',
+                              relief='flat', padx=20, pady=8,
+                              cursor='hand2')
+    btn_config_tab.pack(side='left', padx=(10, 2))
+    
+    btn_datalogger_tab = tk.Button(tabs_buttons_frame, text='Datalogger', 
+                                  command=lambda: switch_tab('datalogger'),
+                                  font=('Segoe UI', 10, 'bold'),
+                                  bg='#f8f9fa', fg='#25364a',
+                                  relief='flat', padx=20, pady=8,
+                                  cursor='hand2')
+    btn_datalogger_tab.pack(side='left', padx=(2, 10))
+    
+    # ===== PESTAÑA DE CONFIGURACIÓN =====
+    config_content_frame = tk.Frame(tabs_content_frame, bg='white')
     
     # Título de configuración
-    config_titulo = tk.Label(config_frame, text='Configuración:', 
+    config_titulo = tk.Label(config_content_frame, text='Configuración:', 
                             font=('Segoe UI', 10, 'bold'), 
                             fg='#25364a', bg='white')
     config_titulo.pack(anchor='w', padx=10, pady=(8, 5))
@@ -102,7 +152,7 @@ def mostrar_menu_canal(widgets):
     filtro_analog_var = tk.StringVar(value='True' if filtro_Analog_PASSAbaja == 'True' else 'False')
     
     # Frame para el selector de canal
-    selector_frame = tk.Frame(config_frame, bg='white')
+    selector_frame = tk.Frame(config_content_frame, bg='white')
     selector_frame.pack(fill='x', padx=10, pady=(0, 8))
     
     # Etiqueta del selector de canal
@@ -135,11 +185,11 @@ def mostrar_menu_canal(widgets):
     radio_b.pack(side='left')
     
     # Separador entre configuraciones
-    separador_config = tk.Frame(config_frame, height=1, bg='#e0e0e0')
+    separador_config = tk.Frame(config_content_frame, height=1, bg='#e0e0e0')
     separador_config.pack(fill='x', padx=10, pady=5)
     
     # Frame para el selector de intervalo
-    intervalo_frame = tk.Frame(config_frame, bg='white')
+    intervalo_frame = tk.Frame(config_content_frame, bg='white')
     intervalo_frame.pack(fill='x', padx=10, pady=(0, 8))
     
     # Etiqueta del selector de intervalo
@@ -188,11 +238,11 @@ def mostrar_menu_canal(widgets):
     entry_intervalo.pack(side='left')
     
     # Separador entre configuraciones
-    separador_config2 = tk.Frame(config_frame, height=1, bg='#e0e0e0')
+    separador_config2 = tk.Frame(config_content_frame, height=1, bg='#e0e0e0')
     separador_config2.pack(fill='x', padx=10, pady=5)
     
     # Frame para el selector de acoplamiento
-    acoplamiento_frame = tk.Frame(config_frame, bg='white')
+    acoplamiento_frame = tk.Frame(config_content_frame, bg='white')
     acoplamiento_frame.pack(fill='x', padx=10, pady=(0, 8))
     
     # Etiqueta del selector de acoplamiento
@@ -225,11 +275,11 @@ def mostrar_menu_canal(widgets):
     radio_dc.pack(side='left')
     
     # Separador entre configuraciones
-    separador_config3 = tk.Frame(config_frame, height=1, bg='#e0e0e0')
+    separador_config3 = tk.Frame(config_content_frame, height=1, bg='#e0e0e0')
     separador_config3.pack(fill='x', padx=10, pady=5)
     
     # Frame para el selector de impedancia
-    impedancia_frame = tk.Frame(config_frame, bg='white')
+    impedancia_frame = tk.Frame(config_content_frame, bg='white')
     impedancia_frame.pack(fill='x', padx=10, pady=(0, 8))
     
     # Etiqueta del selector de impedancia
@@ -262,11 +312,11 @@ def mostrar_menu_canal(widgets):
     radio_min.pack(side='left')
     
     # Separador entre configuraciones
-    separador_config4 = tk.Frame(config_frame, height=1, bg='#e0e0e0')
+    separador_config4 = tk.Frame(config_content_frame, height=1, bg='#e0e0e0')
     separador_config4.pack(fill='x', padx=10, pady=5)
     
     # Frame para el selector de atenuación
-    atenuacion_frame = tk.Frame(config_frame, bg='white')
+    atenuacion_frame = tk.Frame(config_content_frame, bg='white')
     atenuacion_frame.pack(fill='x', padx=10, pady=(0, 8))
     
     # Etiqueta del selector de atenuación
@@ -299,11 +349,11 @@ def mostrar_menu_canal(widgets):
     radio_10x.pack(side='left')
     
     # Separador entre configuraciones
-    separador_config5 = tk.Frame(config_frame, height=1, bg='#e0e0e0')
+    separador_config5 = tk.Frame(config_content_frame, height=1, bg='#e0e0e0')
     separador_config5.pack(fill='x', padx=10, pady=5)
     
     # Frame para el selector de trigger
-    trigger_frame = tk.Frame(config_frame, bg='white')
+    trigger_frame = tk.Frame(config_content_frame, bg='white')
     trigger_frame.pack(fill='x', padx=10, pady=(0, 8))
     
     # Etiqueta del selector de trigger
@@ -392,11 +442,11 @@ def mostrar_menu_canal(widgets):
     trigger_value_var.trace('w', validar_entrada_trigger)
     
     # Separador entre configuraciones
-    separador_config6 = tk.Frame(config_frame, height=1, bg='#e0e0e0')
+    separador_config6 = tk.Frame(config_content_frame, height=1, bg='#e0e0e0')
     separador_config6.pack(fill='x', padx=10, pady=5)
     
     # Frame para el selector de pendiente del trigger
-    trigger_slope_frame = tk.Frame(config_frame, bg='white')
+    trigger_slope_frame = tk.Frame(config_content_frame, bg='white')
     trigger_slope_frame.pack(fill='x', padx=10, pady=(0, 8))
     
     # Etiqueta del selector de pendiente del trigger
@@ -429,11 +479,11 @@ def mostrar_menu_canal(widgets):
     radio_neg.pack(side='left')
     
     # Separador entre configuraciones
-    separador_config7 = tk.Frame(config_frame, height=1, bg='#e0e0e0')
+    separador_config7 = tk.Frame(config_content_frame, height=1, bg='#e0e0e0')
     separador_config7.pack(fill='x', padx=10, pady=5)
     
     # Frame para el selector de filtro analógico
-    filtro_analog_frame = tk.Frame(config_frame, bg='white')
+    filtro_analog_frame = tk.Frame(config_content_frame, bg='white')
     filtro_analog_frame.pack(fill='x', padx=10, pady=(0, 8))
     
     # Etiqueta del selector de filtro analógico
@@ -553,9 +603,12 @@ def mostrar_menu_canal(widgets):
                 resultado_label.config(text="⚠ Error: Dispositivo no conectado", fg='#e74c3c')
         except Exception as e:
             resultado_label.config(text=f"⚠ Error al configurar dispositivo: {str(e)}", fg='#e74c3c')
+        
+        # Actualizar la información de configuración en la pestaña de Datalogger
+        actualizar_info_configuracion()
     
     # Frame para botón y resultado
-    accion_frame = tk.Frame(config_frame, bg='white')
+    accion_frame = tk.Frame(config_content_frame, bg='white')
     accion_frame.pack(fill='x', padx=10, pady=(0, 8))
     
     # Botón para guardar selección con estilo profesional
@@ -572,6 +625,271 @@ def mostrar_menu_canal(widgets):
                               font=('Segoe UI', 8), 
                               fg='#27ae60', bg='white')
     resultado_label.pack(side='left', padx=(8, 0), pady=(3, 0))
+    
+    # ===== PESTAÑA DE DATALOGGER =====
+    datalogger_content_frame = tk.Frame(tabs_content_frame, bg='white')
+    
+    # Título de datalogger
+    datalogger_titulo = tk.Label(datalogger_content_frame, text='Datalogger:', 
+                                font=('Segoe UI', 10, 'bold'), 
+                                fg='#25364a', bg='white')
+    datalogger_titulo.pack(anchor='w', padx=10, pady=(8, 5))
+    
+    # Frame para controles del datalogger
+    datalogger_controls_frame = tk.Frame(datalogger_content_frame, bg='white')
+    datalogger_controls_frame.pack(fill='x', padx=10, pady=(0, 8))
+    
+    # Variable para el estado del datalogger
+    datalogger_running = tk.BooleanVar(value=False)
+    
+    # Función para iniciar/detener datalogger
+    def toggle_datalogger():
+        if not datalogger_running.get():
+            # Iniciar datalogger
+            if cnt_device is None:
+                tk.messagebox.showerror('Error', 'Dispositivo no conectado. Conecte el CNT-91 primero.')
+                return
+            
+            try:
+                # Aquí iría la lógica para iniciar el datalogger
+                # Por ahora solo simulamos el inicio
+                datalogger_running.set(True)
+                btn_start_stop.config(text='⏹️  Detener Datalogger', bg='#e74c3c')
+                status_label.config(text='Estado: Ejecutando datalogger...', fg='#27ae60')
+                
+                # Aquí se llamaría a la función de datalogger del CNT_9X_pendulum.py
+                # cnt_device.iniciar_datalogger()
+                
+            except Exception as e:
+                tk.messagebox.showerror('Error', f'Error al iniciar datalogger: {str(e)}')
+                datalogger_running.set(False)
+        else:
+            # Detener datalogger
+            try:
+                # Aquí iría la lógica para detener el datalogger
+                # cnt_device.detener_datalogger()
+                
+                datalogger_running.set(False)
+                btn_start_stop.config(text='▶️  Iniciar Datalogger', bg='#27ae60')
+                status_label.config(text='Estado: Datalogger detenido', fg='#6c757d')
+                
+            except Exception as e:
+                tk.messagebox.showerror('Error', f'Error al detener datalogger: {str(e)}')
+    
+    # Botón para iniciar/detener datalogger
+    btn_start_stop = tk.Button(datalogger_controls_frame, text='▶️  Iniciar Datalogger', 
+                              command=toggle_datalogger, 
+                              font=('Segoe UI', 10, 'bold'),
+                              bg='#27ae60', fg='white',
+                              relief='flat', padx=15, pady=5,
+                              cursor='hand2')
+    btn_start_stop.pack(side='left', pady=(3, 0))
+    
+    # Label para mostrar estado del datalogger
+    status_label = tk.Label(datalogger_controls_frame, text='Estado: Listo para iniciar', 
+                           font=('Segoe UI', 9), 
+                           fg='#6c757d', bg='white')
+    status_label.pack(side='left', padx=(15, 0), pady=(3, 0))
+    
+    # Separador
+    separador_datalogger = tk.Frame(datalogger_content_frame, height=1, bg='#e0e0e0')
+    separador_datalogger.pack(fill='x', padx=10, pady=10)
+    
+    # Frame para información de configuración actual
+    info_frame = tk.Frame(datalogger_content_frame, bg='#f8f9fa', relief='solid', bd=1)
+    info_frame.pack(fill='x', padx=10, pady=(0, 10))
+    
+    # Título de información
+    info_titulo = tk.Label(info_frame, text='Configuración Actual:', 
+                          font=('Segoe UI', 9, 'bold'), 
+                          fg='#25364a', bg='#f8f9fa')
+    info_titulo.pack(anchor='w', padx=10, pady=(8, 5))
+    
+    # Función para actualizar información de configuración
+    def actualizar_info_configuracion():
+        # Formatear valores para mostrar
+        if intervalo_s < 0.001:
+            intervalo_formato = f"{intervalo_s:.2e}"
+        elif intervalo_s < 1:
+            intervalo_formato = f"{intervalo_s:.6f}"
+        else:
+            intervalo_formato = f"{intervalo_s:.3f}"
+        
+        trigger_formato = "Automático" if trigger_level is None else f"{trigger_level:.1f}V"
+        filtro_formato = "True" if filtro_Analog_PASSAbaja == 'True' else "False"
+        
+        info_text = f"""Canal: {canal_seleccionado}
+Intervalo: {intervalo_formato} s
+Acoplamiento: {acoplamiento}
+Impedancia: {impedancia}
+Atenuación: {atenuacion}x
+Trigger: {trigger_formato}
+Pendiente: {trigger_slope}
+Filtro Analógico: {filtro_formato}"""
+        
+        info_label.config(text=info_text)
+    
+    # Label para mostrar información de configuración
+    info_label = tk.Label(info_frame, text='', 
+                         font=('Segoe UI', 8), 
+                         fg='#2c3e50', bg='#f8f9fa',
+                         justify='left', anchor='nw')
+    info_label.pack(anchor='w', padx=10, pady=(0, 8))
+    
+    # Mostrar la pestaña de configuración por defecto
+    switch_tab('config')
+
+# Función para mostrar la página de Allan Deviation vs tau
+def mostrar_allan_deviation(widgets):
+    frame_contenido = widgets['frame_contenido']
+    
+    # Limpiar el frame de contenido
+    for widget in frame_contenido.winfo_children():
+        widget.destroy()
+    
+    # Frame principal con padding
+    main_frame = tk.Frame(frame_contenido, bg='#f6f7fa')
+    main_frame.pack(fill='both', expand=True, padx=10, pady=5)
+    
+    # Título principal - Allan Deviation vs tau
+    titulo_frame = tk.Frame(main_frame, bg='#f6f7fa')
+    titulo_frame.pack(fill='x', pady=(0, 10))
+    
+    titulo = tk.Label(titulo_frame, text='Allan Deviation vs tau', 
+                     font=('Segoe UI', 16, 'bold'), 
+                     fg='#25364a', bg='#f6f7fa')
+    titulo.pack(anchor='w')
+    
+    # Línea separadora azul
+    separador = tk.Frame(titulo_frame, height=2, bg='#2980f2')
+    separador.pack(fill='x', pady=(5, 0))
+    
+    # Frame de contenido principal
+    contenido_frame = tk.Frame(main_frame, bg='white', relief='flat', bd=1)
+    contenido_frame.pack(fill='both', expand=True, padx=0, pady=10)
+    
+    # Mensaje temporal
+    mensaje = tk.Label(contenido_frame, text='Página en desarrollo...', 
+                      font=('Segoe UI', 12), 
+                      fg='#666666', bg='white')
+    mensaje.pack(expand=True)
+
+# Función para mostrar la página de información del CNT-91
+def mostrar_informacion_cnt91(widgets):
+    frame_contenido = widgets['frame_contenido']
+    
+    # Limpiar el frame de contenido
+    for widget in frame_contenido.winfo_children():
+        widget.destroy()
+    
+    # Frame principal con padding
+    main_frame = tk.Frame(frame_contenido, bg='#f6f7fa')
+    main_frame.pack(fill='both', expand=True, padx=10, pady=5)
+    
+    # Título principal - Información CNT-91
+    titulo_frame = tk.Frame(main_frame, bg='#f6f7fa')
+    titulo_frame.pack(fill='x', pady=(0, 10))
+    
+    titulo = tk.Label(titulo_frame, text='Información CNT-91', 
+                     font=('Segoe UI', 16, 'bold'), 
+                     fg='#25364a', bg='#f6f7fa')
+    titulo.pack(anchor='w')
+    
+    # Línea separadora
+    separador = tk.Frame(titulo_frame, height=2, bg='#2980f2')
+    separador.pack(fill='x', pady=(5, 0))
+    
+    # Frame de contenido con scroll
+    contenido_frame = tk.Frame(main_frame, bg='white', relief='solid', bd=1)
+    contenido_frame.pack(fill='both', expand=True, pady=(0, 5))
+    
+    # Canvas y scrollbar para contenido scrolleable
+    canvas = tk.Canvas(contenido_frame, bg='white', highlightthickness=0, bd=0)
+    scrollbar = ttk.Scrollbar(contenido_frame, orient="vertical", command=canvas.yview)
+    # Frame centrador para el contenido
+    centrador = tk.Frame(canvas, bg='white')
+    scrollable_frame = tk.Frame(centrador, bg='white')
+    scrollable_frame.pack(anchor='center', expand=True)
+
+    # Centrar el contenido horizontalmente al redimensionar
+    def resize_canvas(event):
+        canvas_width = event.width
+        centrador.config(width=canvas_width)
+        canvas.itemconfig(window_id, width=canvas_width)
+    canvas.bind('<Configure>', resize_canvas)
+
+    centrador.pack(expand=True)
+    window_id = canvas.create_window((0, 0), window=centrador, anchor="n")
+    canvas.configure(yscrollcommand=scrollbar.set)
+
+    scrollable_frame.bind(
+        "<Configure>",
+        lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+    )
+
+    # Empaquetar canvas y scrollbar con mejor espaciado
+    canvas.pack(side="left", fill="both", expand=True, padx=(10, 5), pady=10)
+    scrollbar.pack(side="right", fill="y", padx=(0, 10), pady=10)
+    
+    # Contenido de la información
+    contenido = get_info_cnt91_sections()
+    
+    # Crear el contenido con formato profesional
+    for i, (titulo_seccion, texto) in enumerate(contenido):
+        # Título de sección
+        titulo_label = tk.Label(scrollable_frame, text=titulo_seccion,
+                               font=('Segoe UI', 12, 'bold'),
+                               fg='#25364a', bg='white',
+                               anchor='w', justify='left')
+        titulo_label.pack(fill='x', padx=15, pady=(20 if i == 0 else 15, 5))
+        
+        # Texto de la sección
+        texto_label = tk.Label(scrollable_frame, text=texto,
+                              font=('Segoe UI', 10),
+                              fg='#2c3e50', bg='white',
+                              anchor='nw', justify='left',
+                              wraplength=800)
+        texto_label.pack(fill='x', padx=15, pady=(0, 10))
+        
+        # Separador entre secciones (excepto la última)
+        if i < len(contenido) - 1:
+            separador_seccion = tk.Frame(scrollable_frame, height=1, bg='#e0e0e0')
+            separador_seccion.pack(fill='x', padx=15, pady=5)
+    
+    # --- Sección de Documentación y Recursos ---
+    recursos_frame = tk.Frame(scrollable_frame, bg='white')
+    recursos_frame.pack(fill='x', padx=15, pady=(30, 10), anchor='w')
+
+    # Título de la sección
+    recursos_titulo = tk.Label(recursos_frame, text='Documentación y Recursos',
+                               font=('Segoe UI', 13, 'bold'), fg='#25364a', bg='white', anchor='w')
+    recursos_titulo.pack(anchor='w', pady=(0, 10))
+
+    recursos = get_info_cnt91_resources()
+
+    def abrir_url(url):
+        import webbrowser
+        webbrowser.open_new(url)
+
+    for icono, texto, url in recursos:
+        frame = tk.Frame(recursos_frame, bg='white')
+        frame.pack(fill='x', pady=4, anchor='w')
+        label_icon = tk.Label(frame, text=icono, font=('Segoe UI Symbol', 13), fg='#25364a', bg='white')
+        label_icon.pack(side='left', padx=(0, 8))
+        enlace = tk.Label(frame, text=texto, font=('Segoe UI', 11, 'bold'), fg='#25364a', bg='white', cursor='hand2')
+        enlace.pack(side='left')
+        # Efecto hover
+        def on_enter(e, l=enlace):
+            l.config(fg='#2980f2', underline=True)
+        def on_leave(e, l=enlace):
+            l.config(fg='#25364a', underline=False)
+        enlace.bind('<Enter>', on_enter)
+        enlace.bind('<Leave>', on_leave)
+        enlace.bind('<Button-1>', lambda e, url=url: abrir_url(url))
+    
+    # Configurar el scroll para que funcione correctamente
+    canvas.update_idletasks()
+    canvas.configure(scrollregion=canvas.bbox("all"))
 
 # Función para manejar la conexión al dispositivo
 def conectar_dispositivo(widgets):
@@ -652,8 +970,14 @@ if __name__ == '__main__':
     # Asignar la función al botón de conectar
     widgets['btn_conectar'].config(command=lambda: conectar_dispositivo(widgets))
 
+    # Asignar función al botón Allan Deviation vs tau
+    widgets['btn_config'].config(command=lambda: mostrar_allan_deviation(widgets))
+
     # Asignar función al botón Mediciones
     widgets['btn_mediciones'].config(command=lambda: mostrar_menu_canal(widgets))
+
+    # Asignar función al botón Información CNT-91
+    widgets['btn_info'].config(command=lambda: mostrar_informacion_cnt91(widgets))
 
     # Iniciar el bucle principal de la interfaz gráfica (espera eventos del usuario)
     root.mainloop() 
